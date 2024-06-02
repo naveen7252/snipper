@@ -27,6 +27,16 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.paymennt</groupId>
+			<artifactId>solanaj</artifactId>
+			<version>0.0.7</version>
+		</dependency>
+		<dependency>
+			<groupId>com.mmorrell</groupId>
+			<artifactId>serum</artifactId>
+			<version>1.30.2</version>
+		</dependency>
 	</dependencies>
 
 	<build>

@@ -1,4 +1,4 @@
-package com.solbot.snipper;
+package com.solbot.sniper;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
