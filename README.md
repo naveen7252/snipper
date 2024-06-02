@@ -1,2 +1,2 @@
-# snipper
-Snipper for Solana dex pools
+# sniper
+Sniper for Solana dex pools
