@@ -2,10 +2,8 @@ package com.solbot.sniper.service;
 
 import com.paymennt.solanaj.data.SolanaTransaction;
 import com.solbot.sniper.data.TransactionParams;
+import com.solbot.sniper.data.TxResult;
 
 public interface TransactionService {
-
-    String submitTransaction(SolanaTransaction transaction, TransactionParams transactionParams);
-
-    String retryTransaction(String txSignature, SolanaTransaction transaction, TransactionParams transactionParams);
+    TxResult submitTransaction(SolanaTransaction transaction, TransactionParams transactionParams);
 }

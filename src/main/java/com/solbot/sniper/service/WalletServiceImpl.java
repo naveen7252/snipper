@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,14 +37,13 @@ public class WalletServiceImpl implements WalletService {
         final SolanaWallet solanaWallet = walletInfo.getWallet();
         final int totalAccounts = walletInfo.getTotalAccountsInitialized();
         for (int i = 1; i <= totalAccounts; i++) {
-            HdPrivateKey privateKey = solanaWallet.getPrivateKey(i-1, AbstractWallet.Chain.EXTERNAL, null);
+            HdPrivateKey privateKey = solanaWallet.getPrivateKey(i - 1, AbstractWallet.Chain.EXTERNAL, null);
             accountMap.put(i, new SolanaAccount(privateKey));
         }
         List<String> addresses = accountMap.values().stream().map(account -> account.getPublicKey().toBase58()).collect(Collectors.toList());
         LOG.info("******************************************* ");
         LOG.info("******** Wallet Accounts Populated ******** ");
-        addresses.forEach(System.out::println);
+        addresses.forEach(LOG::info);
         LOG.info("******************************************* ");
-
     }
 }
