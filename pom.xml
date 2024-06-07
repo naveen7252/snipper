@@ -32,11 +32,11 @@
 			<artifactId>solanaj</artifactId>
 			<version>0.0.7</version>
 		</dependency>
-		<dependency>
+		<!--<dependency>
 			<groupId>com.mmorrell</groupId>
 			<artifactId>serum</artifactId>
 			<version>1.30.2</version>
-		</dependency>
+		</dependency>-->
 	</dependencies>
 
 	<build>

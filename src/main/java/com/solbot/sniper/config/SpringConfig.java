@@ -1,8 +1,10 @@
 package com.solbot.sniper.config;
 
 import com.paymennt.crypto.bip32.Network;
-import com.paymennt.solanaj.api.rpc.Cluster;
+import com.paymennt.solanaj.api.rpc.RpcEndPoint;
 import com.paymennt.solanaj.api.rpc.SolanaRpcClient;
+import com.paymennt.solanaj.api.ws.SolanaWebSocketClient;
+import com.paymennt.solanaj.utils.WebsocketClient;
 import com.paymennt.solanaj.wallet.SolanaWallet;
 import com.solbot.sniper.data.WalletInfo;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,9 +13,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SpringConfig {
-
-    @Value("${solana.cluster}")
-    private String clusterName;
 
     @Value("${solana.network}")
     private String networkName;
@@ -24,14 +23,17 @@ public class SpringConfig {
     @Value("${solana.total.accounts.initialize}")
     private int totalAccountsToInitialize;
 
+    @Value("${endPoint}")
+    private String endPoint;
+
     @Bean
     public SolanaRpcClient rpcClient() {
-       return new SolanaRpcClient(cluster());
+       return new SolanaRpcClient(rpcEndPoint());
     }
 
     @Bean
-    public Cluster cluster() {
-        return resolveCluster();
+    public RpcEndPoint rpcEndPoint() {
+        return new RpcEndPoint(endPoint);
     }
 
     @Bean
@@ -45,14 +47,9 @@ public class SpringConfig {
         return new WalletInfo(wallet, totalAccountsToInitialize);
     }
 
-    private Cluster resolveCluster() {
-        return switch (clusterName) {
-            case "HELIUS" -> Cluster.HELIUS;
-            case "MAINNET" -> Cluster.MAINNET;
-            case "DEVNET" -> Cluster.DEVNET;
-            case "TESTNET" -> Cluster.TESTNET;
-            default -> Cluster.HELIUS;
-        };
+    @Bean
+    public SolanaWebSocketClient webSocketClient() {
+        return new SolanaWebSocketClient(rpcEndPoint());
     }
 
     private Network resolveNetwork() {

@@ -6,4 +6,5 @@ import com.solbot.sniper.data.TxResult;
 
 public interface TransactionService {
     TxResult submitTransaction(SolanaTransaction transaction, TransactionParams transactionParams);
+    TxResult getTransactionConfirmation(String signature);
 }

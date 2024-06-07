@@ -20,17 +20,24 @@ public class WalletServiceImpl implements WalletService {
 
     private static final Logger LOG = LoggerFactory.getLogger(WalletServiceImpl.class);
 
-    private final Map<Integer, SolanaAccount> accountMap;
+    private final Map<Integer, SolanaAccount> accountMapByIndex;
+    private final Map<String, SolanaAccount> accountMapByAddress;
 
     @Autowired
     public WalletServiceImpl(WalletInfo walletInfo) {
-        accountMap = new LinkedHashMap<>(walletInfo.getTotalAccountsInitialized());
+        accountMapByIndex = new LinkedHashMap<>(walletInfo.getTotalAccountsInitialized());
+        accountMapByAddress = new LinkedHashMap<>(walletInfo.getTotalAccountsInitialized());
         populateAccounts(walletInfo);
     }
 
     @Override
     public SolanaAccount getAccount(int accountIndex) {
-        return accountMap.get(accountIndex);
+        return accountMapByIndex.get(accountIndex);
+    }
+
+    @Override
+    public SolanaAccount getAccount(String account) {
+        return accountMapByAddress.get(account);
     }
 
     private void populateAccounts(WalletInfo walletInfo) {
@@ -38,9 +45,11 @@ public class WalletServiceImpl implements WalletService {
         final int totalAccounts = walletInfo.getTotalAccountsInitialized();
         for (int i = 1; i <= totalAccounts; i++) {
             HdPrivateKey privateKey = solanaWallet.getPrivateKey(i - 1, AbstractWallet.Chain.EXTERNAL, null);
-            accountMap.put(i, new SolanaAccount(privateKey));
+            final SolanaAccount account = new SolanaAccount(privateKey);
+            accountMapByIndex.put(i, account);
+            accountMapByAddress.put(account.getPublicKey().toBase58(), account);
         }
-        List<String> addresses = accountMap.values().stream().map(account -> account.getPublicKey().toBase58()).collect(Collectors.toList());
+        List<String> addresses = accountMapByIndex.values().stream().map(account -> account.getPublicKey().toBase58()).collect(Collectors.toList());
         LOG.info("******************************************* ");
         LOG.info("******** Wallet Accounts Populated ******** ");
         addresses.forEach(LOG::info);

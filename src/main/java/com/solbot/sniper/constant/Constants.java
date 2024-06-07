@@ -12,7 +12,7 @@ public class Constants {
     public static final String TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
     public static final int SWAP_FIXED_IN_INSTRUCTION = 9;
     public static final int SWAP_FIXED_OUT_INSTRUCTION = 11;
-    public static final Cluster cluster = Cluster.HELIUS;
+    public static final int THREAD_POOL_SIZE = 10;
 
     //wallets
     public static final int WALLET_ONE = 1;

@@ -38,7 +38,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public TxResult submitTransaction(SolanaTransaction transaction, TransactionParams transactionParams) {
         String signature = rpcClient.getApi().sendTransaction(transaction, transactionParams.getPreflightCommitment(), transactionParams.getSkipPreflight());
-        TxResult txResult = isTransactionProcessedByValidator(signature);
+        TxResult txResult = getTransactionConfirmation(signature);
         return txResult.isConfirmed() ? txResult : retryTransaction(signature, transaction, transactionParams);
     }
 
@@ -51,7 +51,7 @@ public class TransactionServiceImpl implements TransactionService {
         boolean isProcessed = false;
         String lastValidBlockHash;
         while (retry < maxRetry) {
-            txResult = isTransactionProcessedByValidator(signature);
+            txResult = getTransactionConfirmation(signature);
             if (txResult.isConfirmed()) {
                 LOG.info("Transaction successfully processed by the validator [{}] ", txResult);
                 isProcessed = true;
@@ -81,7 +81,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     }
 
-    private TxResult isTransactionProcessedByValidator(String signature) {
+    @Override
+    public TxResult getTransactionConfirmation(String signature) {
         final RpcResponse<Object> rpcResponse = rpcClient.getApi().getSignatureStatusesWithoutParsing(List.of(signature));
         final LinkedHashMap<String, Object> result = (LinkedHashMap<String, Object>) rpcResponse.getResult();
         final List<LinkedHashMap<String, Object>> valueList = (List<LinkedHashMap<String, Object>>) result.get("value");
