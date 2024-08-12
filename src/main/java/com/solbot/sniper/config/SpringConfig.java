@@ -11,6 +11,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static com.solbot.sniper.constant.Constants.THREAD_POOL_SIZE;
+
 @Configuration
 public class SpringConfig {
 
@@ -50,6 +55,11 @@ public class SpringConfig {
     @Bean
     public SolanaWebSocketClient webSocketClient() {
         return new SolanaWebSocketClient(rpcEndPoint());
+    }
+
+    @Bean
+    public ExecutorService lpExecutorService() {
+        return Executors.newFixedThreadPool(THREAD_POOL_SIZE);
     }
 
     private Network resolveNetwork() {

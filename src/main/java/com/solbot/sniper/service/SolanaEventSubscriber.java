@@ -12,10 +12,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.solbot.sniper.constant.Constants.RAYDIUM_PROGRAM_ID;
-import static com.solbot.sniper.constant.Constants.THREAD_POOL_SIZE;
 
 @Service
 public class SolanaEventSubscriber {
@@ -28,11 +26,12 @@ public class SolanaEventSubscriber {
     @Autowired
     public SolanaEventSubscriber(SolanaWebSocketClient webSocketClient,
                                  SolanaRpcClient rpcClient,
-                                 PositionManagementService positionManagementService) {
+                                 PositionManagementService positionManagementService,
+                                 ExecutorService lpExecutorService) {
         this.webSocketClient = webSocketClient;
         this.rpcClient = rpcClient;
         this.positionManagementService = positionManagementService;
-        this.lpExecutorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        this.lpExecutorService = lpExecutorService;
     }
 
     @PostConstruct

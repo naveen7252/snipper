@@ -12,7 +12,8 @@ public class Constants {
     public static final String TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
     public static final int SWAP_FIXED_IN_INSTRUCTION = 9;
     public static final int SWAP_FIXED_OUT_INSTRUCTION = 11;
-    public static final int THREAD_POOL_SIZE = 10;
+    public static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
+    public static final int MILLIS_PER_SEC = 1000;
 
     //wallets
     public static final int WALLET_ONE = 1;

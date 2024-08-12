@@ -46,7 +46,7 @@ public class AmmSwapServiceImpl implements AmmSwapService {
     public SwapResult swap(LpKeysInfo lpKeysInfo, BigInteger amountIn, BigInteger amountOut, SwapSide swapSide, TransactionType transactionType) {
         final String baseMint = lpKeysInfo.getBaseMint();
         final String quoteMint = lpKeysInfo.getQuoteMint();
-        final SolanaAccount ownerAccount = walletService.getAccount(Constants.WALLET_ONE);
+        final SolanaAccount ownerAccount = walletService.getAccount(Constants.WALLET_TWO);
         final SolanaPublicKey owner = ownerAccount.getPublicKey();
 
         List<AccountMeta> accountKeys = new ArrayList<>();

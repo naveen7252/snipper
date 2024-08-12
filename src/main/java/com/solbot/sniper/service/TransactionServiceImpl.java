@@ -95,7 +95,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
         LOG.info("Confirmation = {}", confirmationStatusMap);
         final String confirmationStatus = (String) confirmationStatusMap.get("confirmationStatus");
-        long slot = (long) confirmationStatusMap.get("slot");
+        int slot = (int) confirmationStatusMap.get("slot");
         final LinkedHashMap<String, Object> statusMap = (LinkedHashMap<String, Object>) confirmationStatusMap.get("status");
         Object err = statusMap.get("Err");
         if (err != null) {

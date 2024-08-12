@@ -1,14 +1,15 @@
 package com.solbot.sniper.rpc;
 
 import com.paymennt.solanaj.api.rpc.SolanaRpcClient;
-import org.p2p.solanaj.core.PublicKey;
 import org.p2p.solanaj.rpc.RpcException;
 import org.p2p.solanaj.rpc.types.AccountInfo;
 import org.p2p.solanaj.rpc.types.config.Commitment;
-import org.p2p.solanaj.rpc.types.config.RpcSendTransactionConfig;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class CustomRpcApi {
@@ -18,7 +19,7 @@ public class CustomRpcApi {
         this.rpcClient = rpcClient;
     }
 
-    public AccountInfo getAccountInfo(String account, Map<String, Object> additionalParams) throws RpcException {
+    public AccountInfo getAccountInfo(String account, Map<String, Object> additionalParams) throws RpcException, com.paymennt.solanaj.api.rpc.RpcException {
         List<Object> params = new ArrayList<>();
         Map<String, Object> parameterMap = new HashMap<>();
         parameterMap.put("encoding", additionalParams.getOrDefault("encoding", "base64"));
@@ -37,6 +38,6 @@ public class CustomRpcApi {
 
         params.add(account);
         params.add(parameterMap);
-        return this.rpcClient.call("getAccountInfo", params, AccountInfo.class);
+        return this.rpcClient.callForSerumMarketAccount("getAccountInfo", params, AccountInfo.class);
     }
 }

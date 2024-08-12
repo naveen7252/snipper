@@ -18,6 +18,6 @@ public class SnipperApplication implements CommandLineRunner{
 
 	@Override
 	public void run(String... args) throws Exception {
-		LOG.info("Starting sniper...");
+		LOG.info("Waiting for pools...");
 	}
 }

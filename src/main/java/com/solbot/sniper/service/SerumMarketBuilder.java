@@ -47,7 +47,7 @@ public class SerumMarketBuilder {
 
             final List<String> accountData = orderBook.getValue().getData();
             return Base64.getDecoder().decode(accountData.get(0));
-        } catch (RpcException e) {
+        } catch (RpcException | com.paymennt.solanaj.api.rpc.RpcException e) {
             LOG.error("ERROR in retrieving serum market info: ",e);
         }
 

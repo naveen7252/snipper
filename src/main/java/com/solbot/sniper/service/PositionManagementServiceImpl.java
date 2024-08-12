@@ -6,7 +6,6 @@ import com.paymennt.solanaj.api.rpc.SolanaRpcApi;
 import com.paymennt.solanaj.api.rpc.SolanaRpcClient;
 import com.paymennt.solanaj.api.rpc.types.RpcResponse;
 import com.paymennt.solanaj.api.rpc.types.SolanaCommitment;
-import com.solbot.sniper.constant.Constants;
 import com.solbot.sniper.constant.SwapSide;
 import com.solbot.sniper.constant.TransactionType;
 import com.solbot.sniper.data.LpKeysInfo;
@@ -17,12 +16,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import static com.solbot.sniper.constant.Constants.*;
 
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 @Service
 public class PositionManagementServiceImpl implements PositionManagementService {
@@ -32,18 +33,21 @@ public class PositionManagementServiceImpl implements PositionManagementService 
     private final SerumMarketBuilder marketBuilder;
     private final AmmSwapService ammSwapService;
     private final TransactionService transactionService;
+    private final ExecutorService lpExecutorService;
 
     @Autowired
     public PositionManagementServiceImpl(SolanaRpcClient rpcClient,
                                          TokenManagementService tokenManagementService,
                                          SerumMarketBuilder marketBuilder,
                                          AmmSwapService ammSwapService,
-                                         TransactionService transactionService) {
+                                         TransactionService transactionService,
+                                         ExecutorService lpExecutorService) {
         this.rpcApi = rpcClient.getApi();
         this.tokenManagementService = tokenManagementService;
         this.marketBuilder = marketBuilder;
         this.ammSwapService = ammSwapService;
         this.transactionService = transactionService;
+        this.lpExecutorService = lpExecutorService;
     }
 
     @Override
@@ -72,7 +76,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
         List<LinkedHashMap<String, Object>> instructions = (List<LinkedHashMap<String, Object>>) messageMap.get("instructions");
         Optional<LinkedHashMap<String, Object>> newLpInstructionMap = instructions.stream().filter(instructionMap -> {
             String programId = (String) instructionMap.get("programId");
-            return programId != null && programId.equals(Constants.RAYDIUM_PROGRAM_ID);
+            return programId != null && programId.equals(RAYDIUM_PROGRAM_ID);
         }).findFirst();
         // Instructions map
         if (newLpInstructionMap.isPresent()) {
@@ -90,18 +94,18 @@ public class PositionManagementServiceImpl implements PositionManagementService 
             int marketVersion = 3;
             String marketProgramId = accounts.get(15);
             String marketId = accounts.get(16);
-            if (!baseMint.equals(Constants.SOL_MINT) && !quoteMint.equals(Constants.SOL_MINT)) {
+            if (!baseMint.equals(SOL_MINT) && !quoteMint.equals(SOL_MINT)) {
                 LOG.error("Non native quote mint..not proceeding");
                 return;
             }
-            boolean baseAndQuoteSwapped = baseMint.equals(Constants.SOL_MINT);
+            boolean baseAndQuoteSwapped = baseMint.equals(SOL_MINT);
             if (baseAndQuoteSwapped) {
                 LOG.error("base and quote mint are swapped, not proceeding for now to avoid complex logic"); //TODO revisit later
                 return;
             }
-            int lpDecimals = Constants.SOL_DECIMALS;
-            int baseDecimals = Constants.SOL_DECIMALS;
-            int quoteDecimals = Constants.SOL_DECIMALS;
+            int lpDecimals = SOL_DECIMALS;
+            int baseDecimals = SOL_DECIMALS;
+            int quoteDecimals = SOL_DECIMALS;
             String lpVault = null;
             BigInteger baseReserve = BigInteger.ZERO;
             BigInteger quoteReserve = BigInteger.ZERO;
@@ -127,7 +131,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                     }
                     String type = (String) parsed.get("type");
                     LinkedHashMap<String, Object> info = (LinkedHashMap<String, Object>) parsed.get("info");
-                    if (type.equals(Constants.INITIALIZE_MINT)) {
+                    if (type.equals(INITIALIZE_MINT)) {
                         String mint = (String) info.get("mint");
                         if (mint.equals(lpMint)) {
                             initializeMintInstruction = inst;
@@ -143,7 +147,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                         }
                     }
                     String programId = (String) inst.get("programId");
-                    if (type.equals("transfer") && programId.equals(Constants.TOKEN_PROGRAM_ID)) {
+                    if (type.equals("transfer") && programId.equals(TOKEN_PROGRAM_ID)) {
                         String destination = (String) info.get("destination");
                         if (destination.equals(baseVault)) {
                             baseReserve = new BigInteger((String) info.get("amount"));
@@ -169,8 +173,8 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                 LinkedHashMap<String, Object> basePreBalance = basePreBalanceOpt.get();
                 LinkedHashMap<String, Object> uiTokenAmountMap = (LinkedHashMap<String, Object>) basePreBalance.get("uiTokenAmount");
                 int decimals = (int) uiTokenAmountMap.get("decimals");
-                baseDecimals = baseAndQuoteSwapped ? Constants.SOL_DECIMALS : decimals;
-                quoteDecimals = baseAndQuoteSwapped ? decimals : Constants.SOL_DECIMALS;
+                baseDecimals = baseAndQuoteSwapped ? SOL_DECIMALS : decimals;
+                quoteDecimals = baseAndQuoteSwapped ? decimals : SOL_DECIMALS;
             }
 
             for (LinkedHashMap<String, Object> instruction : instructions) {
@@ -201,7 +205,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                     baseDecimals,
                     quoteDecimals,
                     lpDecimals,
-                    Constants.RAYDIUM_PROGRAM_ID,
+                    RAYDIUM_PROGRAM_ID,
                     authority,
                     baseVault,
                     quoteVault,
@@ -256,11 +260,12 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                 LOG.info("$$$$$$$$$$$$$$ CAN APE IN $$$$$$$$$$$$$$$$$$$$$$ -> {} ", ammId);
             }
             long now = System.currentTimeMillis();
-            LOG.info("Open Time={}, now={} ",openingTime * 1000 , now);
-            if (openingTime == 0 || openingTime * 1000 <= now) {
-                if (quoteReserve.longValue() >= 5 * Constants.ONE_SOL && quoteReserve.longValue() <= 50 * Constants.ONE_SOL && lpPercent > 50) {
+            long openTimeMs = openingTime * MILLIS_PER_SEC;
+            LOG.info("Open Time={}, now={} , lpAvailable in millis={}", openTimeMs , now, openTimeMs - now);
+            if (openingTime == 0 || openTimeMs <= now) {
+                if (quoteReserve.longValue() >= 5 * ONE_SOL && quoteReserve.longValue() <= 100 * ONE_SOL && lpPercent > 50) {
                     LOG.info("Submitting swap as mint is renounced and Sol liquidity >= 5 ...");
-                    SwapResult swapResult = ammSwapService.swap(lpKeysInfo, BigInteger.valueOf(1000000), BigInteger.ZERO, SwapSide.IN, TransactionType.BUY);
+                    SwapResult swapResult = ammSwapService.swap(lpKeysInfo, BigInteger.valueOf(3000000), BigInteger.ZERO, SwapSide.IN, TransactionType.BUY);
                     boolean isBuySwapConfirmed = false;
                     if (swapResult.getTxResult().isConfirmed()) {
                         LOG.info("Swap BUY confirmed [swapResult={}]", swapResult);
@@ -303,7 +308,6 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                         }
                     }
                 }
-
             }
             System.out.println("<==============================> ");
         }
