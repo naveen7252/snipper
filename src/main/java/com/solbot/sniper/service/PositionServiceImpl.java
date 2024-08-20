@@ -8,46 +8,51 @@ import com.paymennt.solanaj.api.rpc.types.RpcResponse;
 import com.paymennt.solanaj.api.rpc.types.SolanaCommitment;
 import com.solbot.sniper.constant.SwapSide;
 import com.solbot.sniper.constant.TransactionType;
-import com.solbot.sniper.data.LpKeysInfo;
-import com.solbot.sniper.data.SwapResult;
-import com.solbot.sniper.data.TokenMint;
-import com.solbot.sniper.data.TxResult;
+import com.solbot.sniper.data.*;
+import com.solbot.sniper.service.task.RetryHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import static com.solbot.sniper.constant.Constants.*;
 
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static com.solbot.sniper.constant.Constants.*;
 
 @Service
-public class PositionManagementServiceImpl implements PositionManagementService {
-    private static final Logger LOG = LoggerFactory.getLogger(PositionManagementServiceImpl.class);
+public class PositionServiceImpl implements PositionService {
+    private static final Logger LOG = LoggerFactory.getLogger(PositionServiceImpl.class);
+    private static final String PROGRAM_ID = "programId";
+    public static final String AMOUNT = "amount";
     private final SolanaRpcApi rpcApi;
     private final TokenManagementService tokenManagementService;
     private final SerumMarketBuilder marketBuilder;
-    private final AmmSwapService ammSwapService;
+    private final AmmService ammService;
     private final TransactionService transactionService;
-    private final ExecutorService lpExecutorService;
+    private final ScheduledExecutorService lpExecutorService;
+    private final StrategyConfigs strategyConfigs;
 
     @Autowired
-    public PositionManagementServiceImpl(SolanaRpcClient rpcClient,
-                                         TokenManagementService tokenManagementService,
-                                         SerumMarketBuilder marketBuilder,
-                                         AmmSwapService ammSwapService,
-                                         TransactionService transactionService,
-                                         ExecutorService lpExecutorService) {
+    public PositionServiceImpl(SolanaRpcClient rpcClient,
+                               TokenManagementService tokenManagementService,
+                               SerumMarketBuilder marketBuilder,
+                               AmmService ammService,
+                               TransactionService transactionService,
+                               ScheduledExecutorService lpExecutorService,
+                               StrategyConfigs strategyConfigs) {
         this.rpcApi = rpcClient.getApi();
         this.tokenManagementService = tokenManagementService;
         this.marketBuilder = marketBuilder;
-        this.ammSwapService = ammSwapService;
+        this.ammService = ammService;
         this.transactionService = transactionService;
         this.lpExecutorService = lpExecutorService;
+        this.strategyConfigs = strategyConfigs;
+        LOG.info("Strategy Configs [{}]", strategyConfigs);
     }
 
     @Override
@@ -60,7 +65,8 @@ public class PositionManagementServiceImpl implements PositionManagementService 
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                LOG.error(e.getMessage(), e);
+                Thread.currentThread().interrupt();
             }
             rpcResponse = rpcApi.getTransactionWithNoTransformation(lpTxSignature, SolanaCommitment.confirmed);
             result = (LinkedHashMap<String, Object>) rpcResponse.getResult();
@@ -75,7 +81,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
         LinkedHashMap<String, Object> messageMap = (LinkedHashMap<String, Object>) transactionMap.get("message");
         List<LinkedHashMap<String, Object>> instructions = (List<LinkedHashMap<String, Object>>) messageMap.get("instructions");
         Optional<LinkedHashMap<String, Object>> newLpInstructionMap = instructions.stream().filter(instructionMap -> {
-            String programId = (String) instructionMap.get("programId");
+            String programId = (String) instructionMap.get(PROGRAM_ID);
             return programId != null && programId.equals(RAYDIUM_PROGRAM_ID);
         }).findFirst();
         // Instructions map
@@ -100,7 +106,8 @@ public class PositionManagementServiceImpl implements PositionManagementService 
             }
             boolean baseAndQuoteSwapped = baseMint.equals(SOL_MINT);
             if (baseAndQuoteSwapped) {
-                LOG.error("base and quote mint are swapped, not proceeding for now to avoid complex logic"); //TODO revisit later
+                LOG.error("base and quote mint are swapped, not proceeding for now to avoid complex logic [baseMint={}, quoteMint={}]",
+                        baseMint, quoteMint); //TODO revisit later
                 return;
             }
             int lpDecimals = SOL_DECIMALS;
@@ -113,11 +120,6 @@ public class PositionManagementServiceImpl implements PositionManagementService 
             long openingTime = 0L;
             boolean isLpBurned = false;
             double lpBurnPercentage = 0;
-            LinkedHashMap<String, Object> initializeMintInstruction = null;
-            LinkedHashMap<String, Object> lpMintInstruction = null;
-            LinkedHashMap<String, Object> baseTransferInstruction = null;
-            LinkedHashMap<String, Object> quoteTransferInstruction = null;
-
 
             // Meta.innerInstructions
             LinkedHashMap<String, Object> metaMap = (LinkedHashMap<String, Object>) result.get("meta");
@@ -134,27 +136,23 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                     if (type.equals(INITIALIZE_MINT)) {
                         String mint = (String) info.get("mint");
                         if (mint.equals(lpMint)) {
-                            initializeMintInstruction = inst;
                             lpDecimals = (int) info.get("decimals");
                         }
                     }
                     if (type.equals("mintTo")) {
                         String mint = (String) info.get("mint");
                         if (mint.equals(lpMint)) {
-                            lpMintInstruction = inst;
                             lpVault = (String) info.get("account");
-                            lpReserve = new BigInteger((String) info.get("amount"));
+                            lpReserve = new BigInteger((String) info.get(AMOUNT));
                         }
                     }
-                    String programId = (String) inst.get("programId");
+                    String programId = (String) inst.get(PROGRAM_ID);
                     if (type.equals("transfer") && programId.equals(TOKEN_PROGRAM_ID)) {
                         String destination = (String) info.get("destination");
                         if (destination.equals(baseVault)) {
-                            baseReserve = new BigInteger((String) info.get("amount"));
-                            baseTransferInstruction = inst;
+                            baseReserve = new BigInteger((String) info.get(AMOUNT));
                         } else if (destination.equals(quoteVault)) {
-                            quoteReserve = new BigInteger((String) info.get("amount"));
-                            quoteTransferInstruction = inst;
+                            quoteReserve = new BigInteger((String) info.get(AMOUNT));
                         }
                     }
                 }
@@ -164,9 +162,9 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                 String openTime = openTimeLog.get().split(":")[1].trim();
                 openingTime = Long.parseLong(openTime);
             }
-            List<LinkedHashMap<String, Object>> pretokenBalances = (List<LinkedHashMap<String, Object>>) metaMap.get("preTokenBalances");
-            Optional<LinkedHashMap<String, Object>> basePreBalanceOpt = pretokenBalances.stream().filter(preToken -> {
-                String programId = (String) preToken.get("programId");
+            List<LinkedHashMap<String, Object>> preTokenBalances = (List<LinkedHashMap<String, Object>>) metaMap.get("preTokenBalances");
+            Optional<LinkedHashMap<String, Object>> basePreBalanceOpt = preTokenBalances.stream().filter(preToken -> {
+                String programId = (String) preToken.get(PROGRAM_ID);
                 return programId.equals(baseMint);
             }).findFirst();
             if (basePreBalanceOpt.isPresent()) {
@@ -192,7 +190,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
                     String burnMint = (String) info.get("mint");
                     if ((burnFromAccount != null && burnFromAccount.equals(lpVault)) && (burnMint != null && burnMint.equals(lpMint))) {
                         LinkedHashMap<String, Object> tokenAmount = (LinkedHashMap<String, Object>) info.get("tokenAmount");
-                        BigInteger burnAmount = new BigInteger((String) tokenAmount.get("amount"));
+                        BigInteger burnAmount = new BigInteger((String) tokenAmount.get(AMOUNT));
                         isLpBurned = burnAmount.longValue() > 0;
                         lpBurnPercentage = ((double) burnAmount.longValue() / lpReserve.longValue()) * 100;
                     }
@@ -245,7 +243,7 @@ public class PositionManagementServiceImpl implements PositionManagementService 
             }
             TokenMint tokenMint = tokenMintOptional.get();
             if (!tokenMint.isRenounced()) {
-                LOG.error("Not proceeding... mintAuthority/freezeAuthority is not renounced for mint :" + tokenMint.getMintAddress());
+                LOG.error("Not proceeding... mintAuthority/freezeAuthority is not renounced [mint={}]", tokenMint.getMintAddress());
                 return;
             }
             /*TokenHolderInfo holderInfo = tokenManagement.getTokenHolderInfo(lpKeysInfo.getBaseMint());
@@ -261,55 +259,53 @@ public class PositionManagementServiceImpl implements PositionManagementService 
             }
             long now = System.currentTimeMillis();
             long openTimeMs = openingTime * MILLIS_PER_SEC;
-            LOG.info("Open Time={}, now={} , lpAvailable in millis={}", openTimeMs , now, openTimeMs - now);
+            LOG.info("Open Time={}, now={} , lpAvailable in millis={}", openTimeMs, now, openTimeMs - now);
             if (openingTime == 0 || openTimeMs <= now) {
-                if (quoteReserve.longValue() >= 5 * ONE_SOL && quoteReserve.longValue() <= 100 * ONE_SOL && lpPercent > 50) {
-                    LOG.info("Submitting swap as mint is renounced and Sol liquidity >= 5 ...");
-                    SwapResult swapResult = ammSwapService.swap(lpKeysInfo, BigInteger.valueOf(3000000), BigInteger.ZERO, SwapSide.IN, TransactionType.BUY);
-                    boolean isBuySwapConfirmed = false;
-                    if (swapResult.getTxResult().isConfirmed()) {
-                        LOG.info("Swap BUY confirmed [swapResult={}]", swapResult);
-                        isBuySwapConfirmed = true;
-                    } else {
-                        LOG.info("Buy Swap is not confirmed, check again after few seconds..");
-                        try {
-                            Thread.sleep(2000);
-                        } catch (InterruptedException e) {
-                            LOG.error("Error = {}", e.getMessage(), e);
-                        }
-                        TxResult txResult = transactionService.getTransactionConfirmation(swapResult.getTxResult().getSignature());
-                        if (txResult.isConfirmed()) {
-                            LOG.info("Buy Swap is confirmed after recheck [TxResult={}]", txResult);
-                            isBuySwapConfirmed = true;
+                if (quoteReserve.longValue() >= strategyConfigs.getMinSolLiquidity()
+                        && quoteReserve.longValue() <= strategyConfigs.getMaxSolLiquidity()
+                        && lpPercent > strategyConfigs.getMinLpPercent()) {
+                    LOG.info("Submitting swap as mint is renounced and Sol liquidity >= {} ...", quoteReserve.longValue());
+                    SwapResult swapResult = ammService.swap(lpKeysInfo, BigInteger.valueOf(3000000), BigInteger.ZERO, SwapSide.IN, TransactionType.BUY);
+                    if (!swapResult.getTxResult().isConfirmed()) {
+                        RetryHelper<TxResult> retryHelper = new RetryHelper<>(lpExecutorService,
+                                () -> transactionService.getTransactionConfirmation(swapResult.getTxResult().getSignature()),
+                                strategyConfigs.getInitialBuyTxConfirmWaitTimeMillis(),
+                                5);
+                        TxResult txResult = retryHelper.retry();
+                        if (!txResult.isConfirmed()) {
+                            LOG.info("Initial BUY transaction is not confirmed after max retries [ammId={}, TxSignature={}]", ammId, lpKeysInfo.getTxSignature());
+                            return;
                         }
                     }
-                    if (isBuySwapConfirmed) {
-                        LOG.info("Has bought, manage position now...");
-                        try {
-                            Thread.sleep(15000);// wait for 30 sec to sell
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        LOG.info("Sell now...");
-                        String baseTokenAccount = swapResult.getMintTokenAccount();
-                        long tokenBalance = tokenManagementService.getTokenAccountBalance(baseTokenAccount);
-                        SwapResult sellSwapResult = ammSwapService.swap(lpKeysInfo, BigInteger.valueOf(tokenBalance), BigInteger.ZERO, SwapSide.IN, TransactionType.SELL);
-                        if (sellSwapResult.getTxResult().isConfirmed()) {
-                            LOG.info("Sell tx confirmed [Tx={}]", sellSwapResult.getTxResult().getSignature());
-                        } else {
-                            LOG.info("Sell swap not confirmed, recheck again in few seconds...");
-                            try {
-                                Thread.sleep(3000);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            TxResult sellTxResult = transactionService.getTransactionConfirmation(sellSwapResult.getTxResult().getSignature());
-                            LOG.info("Sell tx status [{}]", sellTxResult.isConfirmed() ? "Confirmed" : "Not confirmed");
+                    if (swapResult.getTxResult().getConfirmationStatus().isError()) {
+                        LOG.error("Initial BUY transaction is failed, not continuing [tx={}]", swapResult.getTxResult().getSignature());
+                    }
+                    LOG.info("BUY successful!! Entered the position [ammId={}, mint={}]", ammId, baseMint);
+
+                    try {
+                        Thread.sleep(15000);// wait for 30 sec to sell
+                    } catch (InterruptedException e) {
+                        LOG.error("Error = {}", e.getMessage(), e);
+                        Thread.currentThread().interrupt();
+                    }
+                    LOG.info("Sell now...");
+                    final String baseTokenAccount = swapResult.getMintTokenAccount();
+                    long tokenBalance = tokenManagementService.getTokenAccountBalance(baseTokenAccount);
+                    final SwapResult sellSwapResult = ammService.swap(lpKeysInfo, BigInteger.valueOf(tokenBalance), BigInteger.ZERO, SwapSide.IN, TransactionType.SELL);
+                    if (!sellSwapResult.getTxResult().isConfirmed()) {
+                        RetryHelper<TxResult> retryHelper = new RetryHelper<>(lpExecutorService,
+                                () -> transactionService.getTransactionConfirmation(sellSwapResult.getTxResult().getSignature()),
+                                strategyConfigs.getInitialSellTxConfirmWaitTimeMillis(),
+                                5);
+                       final TxResult txResult = retryHelper.retry();
+                        if (!txResult.isConfirmed()) {
+                            LOG.error("SELL transaction is not confirmed after max retries [ammId={}, TxSignature={}]", ammId, lpKeysInfo.getTxSignature());
+                            return;
                         }
                     }
                 }
             }
-            System.out.println("<==============================> ");
+            LOG.info("<==============================> ");
         }
     }
 }

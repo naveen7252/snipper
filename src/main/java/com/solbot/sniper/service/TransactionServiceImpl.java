@@ -72,6 +72,7 @@ public class TransactionServiceImpl implements TransactionService {
                 Thread.sleep(retryInterval);
             } catch (InterruptedException e) {
                 LOG.error(e.getMessage());
+                Thread.currentThread().interrupt();
             }
         }
         if (!isProcessed) {

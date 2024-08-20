@@ -273,9 +273,6 @@ public class LpKeysInfo {
                 ", baseDecimals=" + baseDecimals +'\n' +
                 ", quoteDecimals=" + quoteDecimals +'\n' +
                 ", lpDecimals=" + lpDecimals +'\n' +
-                ", version=" + version +'\n' +
-                ", programId='" + programId + '\'' +'\n' +
-                ", authority='" + authority + '\'' +'\n' +
                 ", baseVault='" + baseVault + '\'' +'\n' +
                 ", quoteVault='" + quoteVault + '\'' +'\n' +
                 ", lpVault='" + lpVault + '\'' +'\n' +
@@ -283,20 +280,6 @@ public class LpKeysInfo {
                 ", quoteReserve=" + (double) quoteReserve.longValue() / ONE_SOL +'\n' +
                 ", lpReserve=" + lpReserve +'\n' +
                 ", openTime=" + openTime +'\n' +
-                ", isBurned=" + isBurned +'\n' +
-                ", burnPercentage=" + burnPercentage +'\n' +
-                ", openOrders='" + openOrders + '\'' +'\n' +
-                ", targetOrders='" + targetOrders + '\'' +'\n' +
-                ", withdrawQueue='" + withdrawQueue + '\'' +'\n' +
-                ", marketVersion=" + marketVersion +'\n' +
-                ", marketProgramId='" + marketProgramId + '\'' +'\n' +
-                ", marketId='" + marketId + '\'' +'\n' +
-                ", marketBaseVault='" + marketBaseVault + '\'' +'\n' +
-                ", marketQuoteVault='" + marketQuoteVault + '\'' +'\n' +
-                ", marketBids='" + marketBids + '\'' +'\n' +
-                ", marketAsks='" + marketAsks + '\'' +'\n' +
-                ", marketEventQueue='" + marketEventQueue + '\'' +
-                ", marketVaultSigner='" + marketVaultSigner + '\'' +
                 '}';
     }
 

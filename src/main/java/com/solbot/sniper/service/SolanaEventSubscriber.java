@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.solbot.sniper.constant.Constants.RAYDIUM_PROGRAM_ID;
 
@@ -20,17 +20,17 @@ public class SolanaEventSubscriber {
     private static final Logger LOG = LoggerFactory.getLogger(SolanaEventSubscriber.class);
     private final SolanaWebSocketClient webSocketClient;
     private final SolanaRpcClient rpcClient;
-    private final ExecutorService lpExecutorService;
-    private final PositionManagementService positionManagementService;
+    private final ScheduledExecutorService lpExecutorService;
+    private final PositionService positionService;
 
     @Autowired
     public SolanaEventSubscriber(SolanaWebSocketClient webSocketClient,
                                  SolanaRpcClient rpcClient,
-                                 PositionManagementService positionManagementService,
-                                 ExecutorService lpExecutorService) {
+                                 PositionService positionService,
+                                 ScheduledExecutorService lpExecutorService) {
         this.webSocketClient = webSocketClient;
         this.rpcClient = rpcClient;
-        this.positionManagementService = positionManagementService;
+        this.positionService = positionService;
         this.lpExecutorService = lpExecutorService;
     }
 
@@ -47,7 +47,7 @@ public class SolanaEventSubscriber {
                 Optional<String> createLPLog = logs.stream().filter(log -> log.contains("init_pc_amount") || log.contains("initialize2")).findFirst();
                 createLPLog.ifPresent(lpLog -> lpExecutorService.execute(() -> {
                     String signature = (String) logData.get("signature");
-                    positionManagementService.startPosition(signature, lpLog);
+                    positionService.startPosition(signature, lpLog);
                 }));
             }
         });

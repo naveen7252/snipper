@@ -1,5 +1,5 @@
 package com.solbot.sniper.service;
 
-public interface PositionManagementService {
+public interface PositionService {
     void startPosition(String lpTxSignature, String lpLog);
 }

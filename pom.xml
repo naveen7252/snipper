@@ -14,7 +14,7 @@
 	<name>snipper</name>
 	<description>Snipper for sol dex pools</description>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>17</java.version>
 	</properties>
 	<dependencies>
 		<dependency>
